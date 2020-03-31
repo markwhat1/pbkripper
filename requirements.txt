@@ -1,2 +1,2 @@
-tqdm==4.25.0
+youtube_dl
 requests==2.19.1
