@@ -26,6 +26,8 @@ class Episode:
         episode: downloaded json dictionary
         """
         self.mp4_url = episode['mp4']
+        self.subtitle_url = self.set_subtitles(closed_captions=episode['closedCaptions'])
+        self.subtitle_type = SUBTITLE_TYPE.lower()
         self.id = episode['id']
         self.slug = episode['program']['slug']
         self.show_name = episode['program']['title'].strip()
@@ -35,8 +37,6 @@ class Episode:
         self.full_file_path = os.path.join(DOWNLOAD_ROOT, self.show_name, self.base_file_name)
         self.file_path_mp4 = f'{self.full_file_path}.mp4'
         self.file_path_sub = f'{self.full_file_path}.{self.subtitle_type}'
-        self.subtitle_type = SUBTITLE_TYPE.lower()
-        self.subtitle_url = self.set_subtitles(closed_captions=episode['closedCaptions'])
         self.file_dir = os.path.dirname(self.file_path_mp4)
 
     def format_base_file_name(self):
@@ -86,11 +86,10 @@ class Episode:
     def format_episode_title(title):
         return title.replace('/', '-').replace("’", "").replace("'", "").replace("&", "and")
 
-    @staticmethod
-    def set_subtitles(closed_captions):
+    def set_subtitles(self, closed_captions):
         if DOWNLOAD_SUBTITLES:
             for caption in closed_captions:
-                if caption['format'].lower() == SUBTITLE_TYPE.lower():
+                if caption['format'].lower() == self.subtitle_type:
                     return caption['URI']
         else:
             return ''
@@ -167,8 +166,9 @@ def ask_which_episode(show_title):
     chosen_index = check_input(chosen_index, upper_limit=len(episodes))
 
     if chosen_index == "A":  # Download all episodes of selected show
-        for episode in episodes:
+        for count, episode in enumerate(episodes, start=1):
             show_episode = Episode(episode)
+            print(f'[Starting download {count} of {len(episodes)}.]')
             show_episode.create_output_files()
     else:
         show_episode = Episode(episodes[chosen_index])
