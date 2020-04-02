@@ -178,3 +178,4 @@ def ask_which_episode(show_title):
 if __name__ == '__main__':
     show = ask_which_show()
     ask_which_episode(show)
+    print('Script has completed.')
