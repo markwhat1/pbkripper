@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 import os
 import string
 import sys
@@ -18,12 +19,15 @@ ydl_opts = {'verbose': True, 'outtmpl': '%(title)s.%(ext)s',
 ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
-headers = requests.utils.default_headers()
-headers.update({'User-Agent': 'Mozilla/5.0 (Linux; Android 7.1.2; SM-G610M) '
-                              'AppleWebKit/537.36 (KHTML, like Gecko) '
-                              'Chrome/71.0.3578.99 Mobile Safari/537.36'})
+headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 7.1.2; SM-G610M) '
+                         'AppleWebKit/537.36 (KHTML, like Gecko) '
+                         'Chrome/71.0.3578.99 Mobile Safari/537.36'}
 
 translator = str.maketrans('', '', string.punctuation)
+
+logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
+# logging.disable(logging.CRITICAL)
+logging.debug('Start of program')
 
 
 class Episode:
