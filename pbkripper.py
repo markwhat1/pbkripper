@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 import os
+import string
 import sys
 
 import requests
 from youtube_dl import YoutubeDL
 
+# DOWNLOAD_ROOT = 'C:/Users/markw/Downloads/pbs_tv_shows'
 DOWNLOAD_ROOT = '.'
 DOWNLOAD_SUBTITLES = False
 SUBTITLE_TYPE = 'SRT'
 
-ydl = YoutubeDL({'outtmpl': '%(id)s.mp4'})
+ydl_opts = {'verbose': True, 'outtmpl': '%(title)s.%(ext)s',
+    'download_archive': 'download_archive.txt', 'ignoreerrors': True,  # ignore errors
+    'write_all_thumbnails': True, 'writesubtitles': True, 'allsubtitles': True, }
+
+ydl = YoutubeDL(ydl_opts)
 ydl.add_default_info_extractors()
 
 headers = requests.utils.default_headers()
 headers.update({'User-Agent': 'Mozilla/5.0 (Linux; Android 7.1.2; SM-G610M) '
                               'AppleWebKit/537.36 (KHTML, like Gecko) '
                               'Chrome/71.0.3578.99 Mobile Safari/537.36'})
+
+translator = str.maketrans('', '', string.punctuation)
 
 
 class Episode:
@@ -43,7 +51,7 @@ class Episode:
         if self.episode_number:
             return f"{self.show_name}-{self.episode_number}-{self.episode_title}"
         else:
-            return f"{self.show_name}-{self.episode_title}"
+            return f"{self.show_name}--{self.episode_title}"
 
     def create_output_files(self):
         os.makedirs(self.file_dir, exist_ok=True)
@@ -84,7 +92,7 @@ class Episode:
 
     @staticmethod
     def format_episode_title(title):
-        return title.replace('/', '-').replace("’", "").replace("'", "").replace("&", "and")
+        return title.translate(translator)
 
     def set_subtitles(self, closed_captions):
         if DOWNLOAD_SUBTITLES:
@@ -118,21 +126,25 @@ def get_shows():
     return combined_show_list
 
 
-def ask_which_show():
+def ask_which_show(index=None):
     show_list = get_shows()
-    print(f"\nCurrent show list:\n===================")
+    if index:
+        chosen_index = index
+    else:
+        print(f"\nCurrent show list:\n===================")
 
-    show_index = 1
-    for x in show_list:
-        print(f'[{show_index}]: {x["title"]}')
-        show_index += 1
-    chosen_index = input(f'Select a show: [1 - {len(show_list)}], E=exit: ')
+        show_index = 1
+        for x in show_list:
+            print(f'[{show_index}]: {x["title"]}')
+            show_index += 1
+        chosen_index = input(f'Select a show: [1 - {len(show_list)}], E=exit: ')
+
     chosen_index = check_input(chosen_index, upper_limit=len(show_list))
     return show_list[chosen_index]['slug']
 
 
 def check_input(value, upper_limit):
-    if value.isdigit():
+    if str(value).isdigit():
         if 1 <= int(value) <= upper_limit:
             return int(value) - 1
         else:
@@ -154,28 +166,44 @@ def check_available_episodes(show_title):
     return episode_list
 
 
-def ask_which_episode(show_title):
+def ask_which_episode(show_title, download_all=False):
     episodes = check_available_episodes(show_title)
-    print(f"\nAvailable Episodes for {episodes[0]['program']['title']}:\n===================")
-
-    index = 1
-    for episode in episodes:
-        print(f'[{index}]: {episode["title"]} - {episode["description"]}')
-        index += 1
-    chosen_index = input(f'Which episode do you want? [1-{len(episodes)}], A=All, E=exit: ')
-    chosen_index = check_input(chosen_index, upper_limit=len(episodes))
-
-    if chosen_index == "A":  # Download all episodes of selected show
+    if download_all:
         for count, episode in enumerate(episodes, start=1):
             show_episode = Episode(episode)
             print(f'[Starting download {count} of {len(episodes)}.]')
             show_episode.create_output_files()
     else:
-        show_episode = Episode(episodes[chosen_index])
-        show_episode.create_output_files()
+        print(f"\nAvailable Episodes for {episodes[0]['program']['title']}:\n===================")
+
+        x = 1
+        for episode in episodes:
+            print(f'[{x}]: {episode["title"]} - {episode["description"]}')
+            x += 1
+        chosen_index = input(f'Which episode do you want? [1-{len(episodes)}], A=All, E=exit: ')
+        chosen_index = check_input(chosen_index, upper_limit=len(episodes))
+
+        if chosen_index == "A":  # Download all episodes of selected show
+            for count, episode in enumerate(episodes, start=1):
+                show_episode = Episode(episode)
+                print(f'[Starting download {count} of {len(episodes)}.]')
+                show_episode.create_output_files()
+        else:
+            show_episode = Episode(episodes[chosen_index])
+            show_episode.create_output_files()
+
+
+def get_list_of_shows(index_list):
+    pass
 
 
 if __name__ == '__main__':
-    show = ask_which_show()
-    ask_which_episode(show)
+    # show = ask_which_show()
+    # ask_which_episode(show)
+
+    show_index_list = [2, 3, 4, 19, ]
+    for show_index in show_index_list:
+        show = ask_which_show(index=show_index)
+        ask_which_episode(show, download_all=True)
+
     print('Script has completed.')

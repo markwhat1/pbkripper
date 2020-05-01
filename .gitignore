@@ -116,3 +116,5 @@ pbs_cache.sqlite
 .idea/vcs.xml
 Daniel Tiger's Neighborhood/
 Wild Kratts/
+/scratch*.py
+/download_archive.txt
