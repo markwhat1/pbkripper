@@ -59,14 +59,13 @@ class Episode:
             os.rename(orig_filename, self.file_path_mp4)
             print(f'Downloaded file as {orig_filename}, renamed to {self.file_path_mp4}.')
 
-        if self.subtitle_url:
-            if not os.path.exists(self.file_path_sub):
-                caption_dl = requests.get(self.subtitle_url, headers=headers, stream=True)
-                caption_dl.raise_for_status()
-                print(f"Writing subtitles to: {self.file_path_sub}.")
-                with open(self.file_path_sub, 'wb') as f:
-                    for block in caption_dl.iter_content(1024):
-                        f.write(block)
+        if self.subtitle_url and not os.path.exists(self.file_path_sub):
+            caption_dl = requests.get(self.subtitle_url, headers=headers, stream=True)
+            caption_dl.raise_for_status()
+            print(f"Writing subtitles to: {self.file_path_sub}.")
+            with open(self.file_path_sub, 'wb') as f:
+                for block in caption_dl.iter_content(1024):
+                    f.write(block)
 
     @staticmethod
     def format_episode_number(episode_num):
