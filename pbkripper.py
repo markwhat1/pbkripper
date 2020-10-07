@@ -3,6 +3,7 @@ import logging
 import os
 import string
 import sys
+import shutil
 
 import requests
 from youtube_dl import YoutubeDL
@@ -12,14 +13,21 @@ DOWNLOAD_ROOT = "."
 DOWNLOAD_SUBTITLES = False
 SUBTITLE_TYPE = "SRT"
 
+# Source:
+# https://github.com/ytdl-org/youtube-dl/blob/718393c632df5106df92c60c650f52d86a9a3510/youtube_dl/YoutubeDL.py#L137-L312
 ydl_opts = {
-    "verbose": True,
+    # "verbose": True,
     "outtmpl": "%(title)s.%(ext)s",
     "download_archive": "download_archive.txt",
     "ignoreerrors": True,  # ignore errors
-    "write_all_thumbnails": True,
+    "writethumbnail": True,
     "writesubtitles": True,
     "allsubtitles": True,
+    "min_sleep_interval": 5,
+    "max_sleep_interval": 15,
+    "addmetadata": True,
+    # 'listformats': True,  # print a list of the formats to stdout and exit
+    # "forcejson": True,
 }
 
 ydl = YoutubeDL(ydl_opts)
@@ -36,7 +44,7 @@ translator = str.maketrans("", "", string.punctuation)
 logging.basicConfig(
     level=logging.DEBUG, format=" %(asctime)s - %(levelname)s- %(message)s"
 )
-# logging.disable(logging.CRITICAL)
+logging.disable(logging.DEBUG)
 logging.debug("Start of program")
 
 
@@ -60,9 +68,14 @@ class Episode:
             episode_num=episode["nola_episode"]
         )
         self.base_file_name = self.format_base_file_name()
-        self.full_file_path = os.path.join(
-            DOWNLOAD_ROOT, self.show_name, self.base_file_name
-        )
+        if DOWNLOAD_ROOT == ".":
+            self.full_file_path = os.path.join(
+                os.getcwd(), self.show_name, self.base_file_name
+            )
+        else:
+            self.full_file_path = os.path.join(
+                DOWNLOAD_ROOT, self.show_name, self.base_file_name
+            )
         self.file_path_mp4 = f"{self.full_file_path}.mp4"
         self.file_path_sub = f"{self.full_file_path}.{self.subtitle_type}"
         self.file_dir = os.path.dirname(self.file_path_mp4)
@@ -84,7 +97,7 @@ class Episode:
             ydl.download(video_url_as_list)
             dl_info = ydl.extract_info(self.mp4_url, download=False)
             orig_filename = dl_info["webpage_url_basename"]
-            os.rename(orig_filename, self.file_path_mp4)
+            shutil.move(orig_filename, self.file_path_mp4)
             print(
                 f"Downloaded file as {orig_filename}, renamed to {self.file_path_mp4}."
             )
@@ -103,11 +116,9 @@ class Episode:
         # is just an abbreviation of the show title
         if episode_num.isdigit():
             # If episode number is like 301, split so it becomes S3E01
-            episode_number = episode_num[-2:]
-            season_number = episode_num.replace(episode_number, "")
-            if len(season_number) == 1:
-                season_number = f"0{season_number}"
-            return f"S{season_number}E{episode_number}"
+            season_number = int(episode_num[:-2])  # Everything before lat 2 characters
+            episode_number = int(episode_num[-2:])  # Last 2 characters
+            return f"S{season_number:02}E{episode_number:02}"
         else:
             return ""
 
@@ -209,7 +220,7 @@ def ask_which_episode(show_title, download_all=False):
 
         x = 1
         for episode in episodes:
-            print(f'[{x}]: {episode["title"]} - {episode["description"]}')
+            print(f'[{x}]: {episode["title"]}')
             x += 1
         chosen_index = input(
             f"Which episode do you want? [1-{len(episodes)}], A=All, E=exit: "
@@ -231,18 +242,17 @@ def get_list_of_shows(index_list):
 
 
 if __name__ == "__main__":
-    # show = ask_which_show()
-    # ask_which_episode(show)
+    show = ask_which_show()
+    ask_which_episode(show)
 
-    show_index_list = [
-        2,
-        3,
-        4,
-        19,
-    ]
-    for show_index in show_index_list:
-        show = ask_which_show(index=show_index)
-        ask_which_episode(show, download_all=True)
+    # show_index_list = [
+    #     2,
+    #     3,
+    #     4,
+    #     19,
+    # ]
+    # for show_index in show_index_list:
+    #     show = ask_which_show(index=show_index)
+    #     ask_which_episode(show, download_all=True)
 
     print("Script has completed.")
-
