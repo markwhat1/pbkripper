@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import os
+import re
 import shutil
 import string
 import sys
@@ -42,16 +43,14 @@ headers = {
                   "Chrome/71.0.3578.99 Mobile Safari/537.36"
 }
 
-PUNCT_TO_REMOVE = string.punctuation.replace("/", "")  # Keep dashes
+PUNCT_TO_REMOVE = re.sub('[/-]', '', string.punctuation)  # Keep dashes and forward slashes
 translator = str.maketrans("", "", PUNCT_TO_REMOVE)
 
 tvdb_key = '1DE5C9B35180B706'
 t = tvdb_api.Tvdb(apikey=tvdb_key)
 
-logging.basicConfig(
-    level=logging.DEBUG, format=" %(asctime)s - %(levelname)s- %(message)s"
-)
-logging.disable(logging.DEBUG)
+logging.basicConfig(level=logging.INFO, format=" %(asctime)s - %(levelname)s - %(message)s")
+# logging.disable(logging.DEBUG)
 logging.debug("Start of program")
 
 
@@ -68,6 +67,7 @@ class Episode:
         )
         self.subtitle_type = SUBTITLE_TYPE.lower()
         self.id = episode["id"]
+        self.series_id = ''
         self.slug = episode["program"]["slug"]
         self.show_name = episode["program"]["title"].strip()
         self.episode_title = self.format_episode_title(title=episode["title"])
@@ -87,17 +87,17 @@ class Episode:
     def create_output_files(self):
         os.makedirs(self.file_dir, exist_ok=True)
         if os.path.exists(self.file_path_mp4):
-            print(f"{self.episode_title} file exists, not downloading.")
+            logging.info(f"{self.episode_title} file exists, not downloading.")
         else:
             try:
-                print(f"Downloading: {self.episode_title}")
+                logging.info(f"Downloading: {self.episode_title}")
                 # ydl.download function takes a list of URLs
                 video_url_as_list = [self.mp4_url]
                 ydl.download(video_url_as_list)
                 dl_info = ydl.extract_info(self.mp4_url, download=False)
                 orig_filename = dl_info["webpage_url_basename"]
                 shutil.move(orig_filename, self.file_path_mp4)
-                print(
+                logging.info(
                     f"Downloaded file as {orig_filename}, renamed to {self.file_path_mp4}."
                 )
                 return True
@@ -108,7 +108,7 @@ class Episode:
         if self.subtitle_url and not os.path.exists(self.file_path_sub):
             caption_dl = requests.get(self.subtitle_url, headers=headers, stream=True)
             caption_dl.raise_for_status()
-            print(f"Writing subtitles to: {self.file_path_sub}.")
+            logging.info(f"Writing subtitles to: {self.file_path_sub}.")
             with open(self.file_path_sub, "wb") as f:
                 for block in caption_dl.iter_content(1024):
                     f.write(block)
@@ -138,13 +138,15 @@ class Episode:
                     season_numbers.append(x_tvdb['airedSeason'])
                     episode_numbers.append(x_tvdb['airedEpisodeNumber'])
                 else:
-                    print(f'No matching EPISODE results for: {x} in {self.show_name}')
+                    logging.info(f'No matching EPISODE results for: {x} in {self.show_name}')
                     self.episode_number = 'S00E00'
+                    title_translated = title_translated.replace('/', '')
                     self.episode_title = f'{self.show_name} -{self.episode_number}- {title_translated}'
                     return self.episode_title
             else:
-                print(f'Too many EPISODE results for: {x} in {self.show_name}')
+                logging.info(f'Too many EPISODE results for: {x} in {self.show_name}')
                 self.episode_number = 'S00E00'
+                title_translated = title_translated.replace('/', '')
                 self.episode_title = f'{self.show_name} -{self.episode_number}- {title_translated}'
 
         self.set_episode_number(season_list=season_numbers, episode_list=episode_numbers)
@@ -205,6 +207,7 @@ def get_shows():
     for key in show_dict_keys:
         for show_json in collections[key]["content"]:
             combined_show_list.append(show_json)
+    combined_show_list.sort()
     return combined_show_list
 
 
@@ -217,11 +220,12 @@ def get_show_slug_list():
         slug_list.append(f"{x_title} = '{x_slug}'")
     sorted_slugs = sorted(slug_list, key=str.lower)
     for count, slug in enumerate(sorted_slugs, start=1):
-        print(f'{count}: {slug}')
+        logging.info(f'{count}: {slug}')
 
 
 def ask_which_show(index=None, show_name=None):
     show_list = get_shows()
+    chosen_index = ''
     if show_name:
         chosen_show = show_name
         for x in show_list:
@@ -230,10 +234,10 @@ def ask_which_show(index=None, show_name=None):
     elif index:
         chosen_index = index
     else:
-        print(f"\nCurrent show list:\n===================")
+        logging.info(f"\nCurrent show list:\n===================")
 
         for show_index, x in enumerate(show_list, start=1):
-            print(f'[{show_index}]: {x["title"]}')
+            logging.info(f'[{show_index}]: {x["title"]}')
         chosen_index = input(f"Select a show: [1 - {len(show_list)}], E=exit: ")
 
     chosen_index = check_input(chosen_index, upper_limit=len(show_list))
@@ -270,17 +274,17 @@ def check_available_episodes(show_title):
 def ask_which_episode(show_title, download_all=False):
     episodes = check_available_episodes(show_title)
     if download_all:
+        logging.info(f'Downloading all available episodes of {show_title}')
         for count, episode in enumerate(episodes, start=1):
             show_episode = Episode(episode)
-            print(f"[Checking file {count} of {len(episodes)}.]")
+            logging.info(f"[Checking file {count} of {len(episodes)}.]")
             show_episode.create_output_files()
     else:
-        print(
-            f"\nAvailable Episodes for {episodes[0]['program']['title']}:\n==================="
-        )
+        logging.info(f"\nAvailable Episodes for {episodes[0]['program']['title']}:"
+                     f"\n===============================")
 
         for count, episode in enumerate(episodes, start=1):
-            print(f'[{count}]: {episode["title"]}')
+            logging.info(f'[{count}]: {episode["title"]}')
         chosen_index = input(
             f"Which episode do you want? [1-{len(episodes)}], A=All, E=exit: "
         )
@@ -290,11 +294,11 @@ def ask_which_episode(show_title, download_all=False):
         if chosen_index == "A":  # Download all episodes of selected show
             for count, episode in enumerate(episodes, start=1):
                 show_episode = Episode(episode)
-                print(f"[Starting download {count} of {len(episodes)}.]")
+                logging.info(f"[Starting download {count} of {len(episodes)}.]")
                 dl_status = show_episode.create_output_files()
                 if dl_status:
                     dl_count += 1
-            print(f"Downloaded {dl_count} new episodes of {show_title}.")
+            logging.info(f"Downloaded {dl_count} new episodes of {show_title}.")
         else:
             show_episode = Episode(episodes[chosen_index])
             show_episode.create_output_files()
@@ -306,8 +310,7 @@ if __name__ == "__main__":
     # get_show_slug_list()
 
     # wanted_shows = ''
-    # wanted_shows = ['daniel-tigers-neighborhood', 'wild-kratts']
-    wanted_shows = ['wild-kratts']
+    wanted_shows = ['daniel-tigers-neighborhood', 'wild-kratts']
     if wanted_shows:
         for item in wanted_shows:
             ask_which_episode(item, download_all=True)
@@ -315,4 +318,4 @@ if __name__ == "__main__":
         show = ask_which_show()
         ask_which_episode(show)
 
-    print("Script has completed.")
+    logging.info("\nScript has completed.")
